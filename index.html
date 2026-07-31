@@ -434,6 +434,7 @@
       <div id="roomCodeDisplay" class="hidden">
         <div class="label">CÓDIGO DA SALA</div>
         <div id="roomCodeText">----</div>
+        <button class="btn small" id="btnShareRoom" style="width:100%; background:linear-gradient(180deg,#3fe07a,#25c157); box-shadow:0 6px 0 #178a3d, 0 10px 20px rgba(0,0,0,.4);">📤 CHAMAR NO WHATSAPP</button>
       </div>
       <div id="joinInputWrap" class="hidden">
         <input id="joinCodeInput" maxlength="4" placeholder="CÓDIGO" autocomplete="off" autocapitalize="characters">
@@ -2242,6 +2243,7 @@ bindTap(document.getElementById('btnShowOnline'), ()=>{
 });
 bindTap(document.getElementById('btnBackToModes'), ()=>{
   if(peer){ try{ peer.destroy(); }catch(e){} peer=null; conn=null; }
+  roomCode = null;
   document.getElementById('onlinePanel').classList.add('hidden');
   document.getElementById('roomCodeDisplay').classList.add('hidden');
   document.getElementById('joinInputWrap').classList.add('hidden');
@@ -2252,6 +2254,15 @@ bindTap(document.getElementById('btnCreateRoom'), ()=>{
   initAudio();
   document.getElementById('joinInputWrap').classList.add('hidden');
   createRoom();
+});
+bindTap(document.getElementById('btnShareRoom'), ()=>{
+  if(!roomCode) return;
+  const msg = `🎯 Bora jogar Paintball comigo? Entra na minha sala!\n\nCódigo: ${roomCode}\n\nAbre o jogo aqui e toca em "1x1 Online com amigo" → "Entrar em Sala":\n${location.href}`;
+  if(navigator.share){
+    navigator.share({ title:'Paintball Arena', text: msg }).catch(()=>{});
+  } else {
+    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+  }
 });
 bindTap(document.getElementById('btnJoinRoom'), ()=>{
   document.getElementById('roomCodeDisplay').classList.add('hidden');
