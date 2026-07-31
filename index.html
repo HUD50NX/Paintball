@@ -12,6 +12,7 @@
 <title>PAINTBALL ARENA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
   :root{
     --asphalt-0:#14171a;
@@ -38,6 +39,13 @@
   #stage{
     position:fixed; inset:0;
     width:100%; height:100%; height:100dvh;
+  }
+  #stage.force-landscape{
+    position:absolute;
+    top:0; left:100%;
+    width:100vh; height:100vw;
+    transform-origin: 0 0;
+    transform: rotate(90deg);
   }
   #rotateHint{
     position:absolute; inset:0; z-index:100;
@@ -80,6 +88,16 @@
     width:38px; height:38px; border-radius:50%;
     background:rgba(20,23,26,0.8); border:1px solid rgba(255,255,255,.15);
     color:#fff; font-size:16px;
+    display:flex; align-items:center; justify-content:center;
+    pointer-events:auto; z-index:11;
+    box-shadow:0 4px 10px rgba(0,0,0,.4);
+  }
+  #pauseBtn{
+    position:absolute; top: calc(10px + env(safe-area-inset-top));
+    left:calc(50% + 46px);
+    width:38px; height:38px; border-radius:50%;
+    background:rgba(20,23,26,0.8); border:1px solid rgba(255,255,255,.15);
+    color:#fff; font-size:15px;
     display:flex; align-items:center; justify-content:center;
     pointer-events:auto; z-index:11;
     box-shadow:0 4px 10px rgba(0,0,0,.4);
@@ -212,6 +230,55 @@
     margin-bottom:26px;
   }
   .result-stats b{ color:var(--ink); font-size:20px; }
+
+  /* ---------- Online lobby ---------- */
+  #modeSelect{ display:flex; flex-direction:column; gap:12px; width:min(84vw,320px); }
+  .btn-outline{
+    background:transparent; color:var(--ink);
+    border:2px solid var(--team-b); box-shadow:none;
+    font-family:'Bebas Neue',sans-serif; font-size:18px; letter-spacing:2px;
+    padding:14px 20px; border-radius:8px; pointer-events:auto;
+  }
+  .btn-outline:active{ background:rgba(157,255,46,0.12); }
+  #onlinePanel{
+    display:flex; flex-direction:column; align-items:center; gap:16px;
+    width:min(84vw,320px);
+  }
+  .online-tabs{ display:flex; gap:10px; width:100%; }
+  .btn.small{
+    font-size:15px; padding:11px 0; flex:1; letter-spacing:1.5px;
+  }
+  .btn.small.outline{
+    background:transparent; color:var(--ink); border:2px solid var(--team-a);
+    box-shadow:none;
+  }
+  #roomCodeDisplay{ text-align:center; }
+  #roomCodeText{
+    font-family:'Bebas Neue',sans-serif; font-size:52px; letter-spacing:10px;
+    color:var(--team-b); text-shadow:0 0 20px rgba(157,255,46,.6);
+    background:rgba(0,0,0,.3); border:1px solid rgba(255,255,255,.1);
+    border-radius:10px; padding:10px 6px; margin:8px 0;
+  }
+  #roomStatus{ font-size:13px; color:var(--muted); letter-spacing:1px; min-height:18px; }
+  #joinInputWrap{ display:flex; gap:8px; width:100%; }
+  #joinCodeInput{
+    flex:1; min-width:0; font-family:'Bebas Neue',sans-serif; font-size:24px;
+    letter-spacing:6px; text-align:center; text-transform:uppercase;
+    background:rgba(0,0,0,.35); border:2px solid rgba(255,255,255,.2);
+    border-radius:8px; color:var(--ink); padding:10px 0;
+  }
+  .link-btn{
+    background:none; border:none; color:var(--muted);
+    font-family:'Rajdhani',sans-serif; font-size:14px; letter-spacing:1px;
+    text-decoration:underline; pointer-events:auto; padding:6px;
+  }
+  #iosTip{
+    max-width:min(84vw,320px); font-size:12.5px; line-height:1.5;
+    color:var(--muted); text-align:center; margin-top:14px;
+    background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.08);
+    border-radius:8px; padding:10px 12px;
+  }
+  #iosTip b{ color:var(--line-y); }
 </style>
 </head>
 <body>
@@ -227,6 +294,7 @@
 
   <div id="hud">
     <button id="muteBtn">🔊</button>
+    <button id="pauseBtn">⏸</button>
     <div class="hud-top">
       <div class="panel">
         <div class="label">EQUIPE ROSA</div>
@@ -254,7 +322,30 @@
   <div class="screen" id="startScreen">
     <div class="drip-title"><span class="a">PAINT</span><span class="b">BALL</span></div>
     <div class="subtitle">Arena Urbana &nbsp;•&nbsp; Modo Manchado</div>
-    <button class="btn" id="btnStart">ENTRAR NA ARENA</button>
+
+    <div id="modeSelect">
+      <button class="btn" id="btnStart">SOLO CONTRA BOTS</button>
+      <button class="btn-outline" id="btnShowOnline">🌐 1x1 ONLINE COM AMIGO</button>
+    </div>
+    <div id="iosTip" class="hidden">📲 Pra jogar em tela cheia de verdade no iPhone: toque em <b>Compartilhar</b> → <b>Adicionar à Tela de Início</b>, e abra o jogo pelo ícone.</div>
+
+    <div id="onlinePanel" class="hidden">
+      <div class="online-tabs">
+        <button class="btn small" id="btnCreateRoom">CRIAR SALA</button>
+        <button class="btn small outline" id="btnJoinRoom">ENTRAR EM SALA</button>
+      </div>
+      <div id="roomStatus"></div>
+      <div id="roomCodeDisplay" class="hidden">
+        <div class="label">CÓDIGO DA SALA</div>
+        <div id="roomCodeText">----</div>
+      </div>
+      <div id="joinInputWrap" class="hidden">
+        <input id="joinCodeInput" maxlength="4" placeholder="CÓDIGO" autocomplete="off" autocapitalize="characters">
+        <button class="btn small" id="btnConfirmJoin">ENTRAR</button>
+      </div>
+      <button class="link-btn" id="btnBackToModes">← voltar</button>
+    </div>
+
     <div class="instructions">
       <div><div class="ic">L</div>MOVER</div>
       <div><div class="ic">R</div>MIRAR<br>E ATIRAR</div>
@@ -267,6 +358,14 @@
     <div class="drip-title" id="endTitle"><span class="a">FIM</span> <span class="b">DE JOGO</span></div>
     <div class="result-stats" id="endStats"></div>
     <button class="btn" id="btnRestart">JOGAR DE NOVO</button>
+    <button class="btn-outline" id="btnEndToMenu" style="margin-top:12px;">MENU PRINCIPAL</button>
+  </div>
+
+  <!-- PAUSE SCREEN -->
+  <div class="screen hidden" id="pauseScreen">
+    <div class="drip-title"><span class="b">PAUSADO</span></div>
+    <button class="btn" id="btnResume">CONTINUAR</button>
+    <button class="btn-outline" id="btnPauseToMenu" style="margin-top:12px;">SAIR PARA O MENU</button>
   </div>
 </div>
 
@@ -287,9 +386,13 @@ let DPR = Math.min(window.devicePixelRatio || 1, 2.5);
 let W = 0, H = 0;
 
 /* ---------- Mobile fullscreen + orientation ---------- */
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
 function goFullscreen(){
   const el = document.documentElement;
-  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen ||
+              el.mozRequestFullScreen || el.msRequestFullscreen;
   if(req){ try{ req.call(el); }catch(e){} }
   if(screen.orientation && screen.orientation.lock){
     screen.orientation.lock('landscape').catch(()=>{});
@@ -297,17 +400,47 @@ function goFullscreen(){
 }
 
 const rotateHint = document.getElementById('rotateHint');
+const stageEl = document.getElementById('stage');
+let forceRotated = false;
+let physW = 0, physH = 0; // largura/altura físicas reais do viewport (em pé)
+
+function toStageXY(clientX, clientY){
+  if(forceRotated){
+    return { x: clientY, y: physW - clientX };
+  }
+  return { x: clientX, y: clientY };
+}
+
+function applyForceRotation(){
+  physW = window.innerWidth;
+  physH = window.innerHeight;
+  const isPortraitPhys = physH > physW;
+  const shouldForce = isIOS && isPortraitPhys;
+  forceRotated = shouldForce;
+  stageEl.classList.toggle('force-landscape', shouldForce);
+}
+
 function checkOrientation(){
+  applyForceRotation();
+  if(isIOS){
+    // no iPhone a rotação é forçada por CSS, nunca pedimos pra girar
+    rotateHint.classList.remove('show');
+    return;
+  }
   const isPortrait = window.innerHeight > window.innerWidth;
   const isSmall = Math.min(window.innerWidth, window.innerHeight) < 620;
   const shouldWarn = isPortrait && isSmall && running && !gameOver;
   rotateHint.classList.toggle('show', shouldWarn);
 }
 window.addEventListener('orientationchange', ()=> setTimeout(()=>{ resize(); checkOrientation(); }, 250));
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize', ()=> setTimeout(()=>{ resize(); checkOrientation(); }, 120));
+}
 
 function resize(){
-  W = window.innerWidth;
-  H = window.innerHeight;
+  applyForceRotation();
+  W = forceRotated ? physH : window.innerWidth;
+  H = forceRotated ? physW : window.innerHeight;
   [gameCanvas, decalCanvas].forEach(c=>{
     c.width = W * DPR;
     c.height = H * DPR;
@@ -707,7 +840,10 @@ function makeCharacter(team, x, y){
     invuln: 0,
     reaction: 0.35 + Math.random()*0.35,
     weapon: 'pistol',
-    weaponAmmo: Infinity
+    weaponAmmo: Infinity,
+    isRemote: false,
+    netX: null, netY: null,
+    lives: 3
   };
 }
 
@@ -756,6 +892,154 @@ function resetGame(){
 }
 
 /* ============================================================
+   ONLINE 1x1 (PeerJS — conexão direta entre os dois celulares)
+============================================================ */
+let netMode = null; // null | 'host' | 'guest'
+let peer = null, conn = null, remote = null, roomCode = null;
+let netSendTimer = 0;
+const NET_SEND_INTERVAL = 0.05; // ~20x por segundo
+
+function genRoomCode(){
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for(let i=0;i<4;i++) s += chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+
+function resetGameOnline(){
+  const p0 = netMode==='host' ? {x:W*0.5, y:H*0.82} : {x:W*0.5, y:H*0.18};
+  const r0 = netMode==='host' ? {x:W*0.5, y:H*0.18} : {x:W*0.5, y:H*0.82};
+  player = makeCharacter('player', p0.x, p0.y);
+  player.lives = 3;
+  player.weapon = 'pistol';
+  player.weaponAmmo = Infinity;
+
+  remote = makeCharacter('bot', r0.x, r0.y);
+  remote.isRemote = true;
+  remote.lives = 3;
+  remote.netX = r0.x; remote.netY = r0.y;
+  bots = [remote];
+
+  bullets = []; particles = []; pickups = [];
+  score = 0; timeLeft = 90; gameOver = false;
+  paintGroundBase();
+  updateLivesUI(); updateScoreUI(); updateAmmoLabel();
+  player.invuln = 2;
+  remote.invuln = 2;
+}
+
+function sendNet(obj){
+  if(conn && conn.open){ try{ conn.send(obj); }catch(e){} }
+}
+
+function updateRemotePuppet(dt){
+  if(!remote) return;
+  remote.hitFlash = Math.max(0, remote.hitFlash - dt);
+  remote.invuln = Math.max(0, remote.invuln - dt);
+  if(remote.netX != null){
+    remote.x += (remote.netX - remote.x) * Math.min(1, dt*14);
+    remote.y += (remote.netY - remote.y) * Math.min(1, dt*14);
+  }
+}
+
+function handleNetData(msg){
+  if(!msg || !remote) return;
+  if(msg.t === 's'){
+    remote.netX = msg.x; remote.netY = msg.y; remote.angle = msg.a;
+    remote.hp = msg.hp; remote.maxHp = msg.mhp;
+    remote.alive = msg.al; remote.lives = msg.lv;
+    remote.weapon = msg.w;
+  } else if(msg.t === 'shot'){
+    bullets.push({
+      x: msg.x, y: msg.y, vx: msg.vx, vy: msg.vy,
+      owner: 'bot', life: 1.1, dmg: msg.dmg,
+      color: PAINT_COLORS[msg.c] || PAINT_COLORS[0]
+    });
+  } else if(msg.t === 'dead'){
+    remote.alive = false;
+  } else if(msg.t === 'leave'){
+    if(!gameOver){
+      gameOver = true;
+      showEnd(false, true, true);
+    }
+  } else if(msg.t === 'rematch'){
+    resetGameOnline();
+    running = true;
+    document.getElementById('endScreen').classList.add('hidden');
+  }
+}
+
+function setupConnection(role){
+  netMode = role;
+  const statusEl = document.getElementById('roomStatus');
+  if(statusEl) statusEl.textContent = 'Conectado! Entrando na arena...';
+  conn.on('data', handleNetData);
+  conn.on('close', ()=>{
+    if(netMode && !gameOver){
+      gameOver = true;
+      spawnFloatMsg('AMIGO SAIU');
+      showEnd(false, true, true);
+    }
+  });
+  setTimeout(()=>{
+    document.getElementById('startScreen').classList.add('hidden');
+    goFullscreen();
+    initAudio();
+    if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
+    resize();
+    resetGameOnline();
+    running = true;
+    checkOrientation();
+  }, 500);
+}
+
+function createRoom(tries){
+  tries = tries || 0;
+  const statusEl = document.getElementById('roomStatus');
+  document.getElementById('roomCodeDisplay').classList.remove('hidden');
+  document.getElementById('joinInputWrap').classList.add('hidden');
+  statusEl.textContent = 'Gerando sala...';
+  const code = genRoomCode();
+  const p = new Peer('pbarena-' + code);
+  p.on('open', ()=>{
+    peer = p; roomCode = code;
+    document.getElementById('roomCodeText').textContent = code;
+    statusEl.textContent = 'Aguardando amigo entrar...';
+  });
+  p.on('connection', (c)=>{
+    conn = c;
+    setupConnection('host');
+  });
+  p.on('error', (err)=>{
+    if(err && err.type === 'unavailable-id' && tries < 4){
+      p.destroy();
+      createRoom(tries+1);
+    } else {
+      statusEl.textContent = 'Erro ao criar sala. Tenta de novo.';
+    }
+  });
+}
+
+function joinRoomWithCode(code){
+  const statusEl = document.getElementById('roomStatus');
+  document.getElementById('roomCodeDisplay').classList.add('hidden');
+  statusEl.textContent = 'Conectando...';
+  const p = new Peer();
+  let connected = false;
+  p.on('open', ()=>{
+    peer = p;
+    const c = p.connect('pbarena-' + code, {reliable:true});
+    conn = c;
+    conn.on('open', ()=>{ connected = true; setupConnection('guest'); });
+    conn.on('error', ()=>{ statusEl.textContent = 'Não foi possível conectar.'; });
+  });
+  p.on('error', ()=>{ statusEl.textContent = 'Sala não encontrada. Confira o código.'; });
+  setTimeout(()=>{
+    if(!connected && !netMode) statusEl.textContent = 'Sala não encontrada. Confira o código.';
+  }, 9000);
+}
+
+/* ============================================================
    INPUT - dual virtual joysticks
 ============================================================ */
 const moveBase = document.getElementById('moveBase');
@@ -794,17 +1078,18 @@ function hideBase(base, knob){
 document.getElementById('stage').addEventListener('touchstart', (e)=>{
   if(e.target.closest('.screen') || e.target.closest('button')) return;
   for(const t of e.changedTouches){
-    const isLeft = t.clientX < W/2;
+    const p = toStageXY(t.clientX, t.clientY);
+    const isLeft = p.x < W/2;
     if(isLeft && !moveStick.active){
       moveStick.active = true; moveStick.id = t.identifier;
-      moveStick.cx = t.clientX; moveStick.cy = t.clientY;
-      showBase(moveBase, t.clientX, t.clientY);
-      setStick(moveStick, moveBase, moveKnob, t.clientX, t.clientY);
+      moveStick.cx = p.x; moveStick.cy = p.y;
+      showBase(moveBase, p.x, p.y);
+      setStick(moveStick, moveBase, moveKnob, p.x, p.y);
     } else if(!isLeft && !aimStick.active){
       aimStick.active = true; aimStick.id = t.identifier; aimStick.firing = true;
-      aimStick.cx = t.clientX; aimStick.cy = t.clientY;
-      showBase(aimBase, t.clientX, t.clientY);
-      setStick(aimStick, aimBase, aimKnob, t.clientX, t.clientY);
+      aimStick.cx = p.x; aimStick.cy = p.y;
+      showBase(aimBase, p.x, p.y);
+      setStick(aimStick, aimBase, aimKnob, p.x, p.y);
     }
   }
   e.preventDefault();
@@ -812,10 +1097,11 @@ document.getElementById('stage').addEventListener('touchstart', (e)=>{
 
 document.getElementById('stage').addEventListener('touchmove', (e)=>{
   for(const t of e.changedTouches){
+    const p = toStageXY(t.clientX, t.clientY);
     if(moveStick.active && t.identifier === moveStick.id){
-      setStick(moveStick, moveBase, moveKnob, t.clientX, t.clientY);
+      setStick(moveStick, moveBase, moveKnob, p.x, p.y);
     } else if(aimStick.active && t.identifier === aimStick.id){
-      setStick(aimStick, aimBase, aimKnob, t.clientX, t.clientY);
+      setStick(aimStick, aimBase, aimKnob, p.x, p.y);
     }
   }
   e.preventDefault();
@@ -894,12 +1180,15 @@ function tryShoot(shooter, dt, aimAngle, isFiring){
     const spreadOffset = n===1 ? (Math.random()-0.5)*wCfg.spread
       : (i/(n-1) - 0.5) * wCfg.spread + (Math.random()-0.5)*0.03;
     const a = aimAngle + spreadOffset;
+    const vx = Math.cos(a)*BULLET_SPEED*(wCfg.speed||1), vy = Math.sin(a)*BULLET_SPEED*(wCfg.speed||1);
     bullets.push({
-      x: muzzleX, y: muzzleY,
-      vx: Math.cos(a)*BULLET_SPEED*(wCfg.speed||1), vy: Math.sin(a)*BULLET_SPEED*(wCfg.speed||1),
+      x: muzzleX, y: muzzleY, vx, vy,
       owner: shooter.team, life: 1.1, dmg,
       color: PAINT_COLORS[colorIdx]
     });
+    if(shooter.team==='player' && netMode){
+      sendNet({t:'shot', x:muzzleX, y:muzzleY, vx, vy, dmg, c:colorIdx});
+    }
   }
   particles.push({x:muzzleX, y:muzzleY, life:0.08, maxLife:0.08, type:'flash', angle:aimAngle});
   playGunshot(shooter.team==='player' ? shooter.weapon : 'pistol', shooter.team==='player', shooter.x);
@@ -908,6 +1197,18 @@ function tryShoot(shooter, dt, aimAngle, isFiring){
 
 function hitCharacter(target, color, dmg){
   if(!target.alive || target.invuln > 0) return;
+  if(target.isRemote){
+    splatDecal(target.x, target.y, color, false);
+    for(let i=0;i<6;i++){
+      particles.push({
+        x: target.x, y: target.y,
+        vx:(Math.random()-0.5)*220, vy:(Math.random()-0.5)*220,
+        life:0.4, maxLife:0.4, type:'spark', color: color.core
+      });
+    }
+    playSplat(false, false, target.x);
+    return;
+  }
   target.hp -= (dmg || 1);
   target.hitFlash = 0.18;
   splatDecal(target.x, target.y, color, false);
@@ -1084,21 +1385,43 @@ function spawnFloatMsg(text){
 
 function onPlayerDown(){
   gameOver = true;
-  showEnd(false);
+  if(netMode){
+    sendNet({t:'dead'});
+    showEnd(false, true);
+  } else {
+    showEnd(false);
+  }
 }
 function onTimeUp(){
   gameOver = true;
-  showEnd(true);
+  if(netMode && remote){
+    let won;
+    if(player.lives !== remote.lives) won = player.lives > remote.lives;
+    else won = player.hp >= remote.hp;
+    showEnd(won, true);
+  } else {
+    showEnd(true);
+  }
 }
 
-function showEnd(survived){
+function showEnd(survived, isOnline, disconnected){
   const endScreen = document.getElementById('endScreen');
   const title = document.getElementById('endTitle');
   const stats = document.getElementById('endStats');
-  title.innerHTML = survived
-    ? '<span class="b">VITÓRIA</span>'
-    : '<span class="a">ELIMINADO</span>';
-  stats.innerHTML = `PONTUAÇÃO FINAL<br><b>${score}</b>`;
+  if(disconnected){
+    title.innerHTML = '<span class="a">AMIGO SAIU</span>';
+    stats.innerHTML = 'A conexão caiu';
+  } else if(isOnline){
+    title.innerHTML = survived
+      ? '<span class="b">VOCÊ VENCEU</span>'
+      : '<span class="a">VOCÊ PERDEU</span>';
+    stats.innerHTML = `DUELO 1x1<br><b>${survived ? 'GG!' : 'BOA SORTE NA PRÓXIMA'}</b>`;
+  } else {
+    title.innerHTML = survived
+      ? '<span class="b">VITÓRIA</span>'
+      : '<span class="a">ELIMINADO</span>';
+    stats.innerHTML = `PONTUAÇÃO FINAL<br><b>${score}</b>`;
+  }
   endScreen.classList.remove('hidden');
 }
 
@@ -1116,7 +1439,7 @@ function update(dt){
   updateTimerUI();
 
   nextBotWave -= dt;
-  if(nextBotWave <= 0 && bots.length < 3){
+  if(!netMode && nextBotWave <= 0 && bots.length < 3){
     nextBotWave = 30;
     const s = spawnPos();
     const nb = makeCharacter('bot', s.x, s.y);
@@ -1124,7 +1447,8 @@ function update(dt){
     bots.push(nb);
   }
 
-  /* --- pickups: spawn --- */
+  /* --- pickups: spawn (só no modo solo) --- */
+  if(!netMode){
   heartTimer -= dt;
   if(heartTimer <= 0 && pickups.filter(p=>p.type==='heart').length < 2){
     heartTimer = 11 + Math.random()*4;
@@ -1139,6 +1463,7 @@ function update(dt){
   if(weaponTimer <= 0 && pickups.filter(p=>p.type==='weapon').length < 1){
     weaponTimer = 16 + Math.random()*8;
     spawnPickup('weapon');
+  }
   }
   /* --- pickups: collect --- */
   if(player.alive){
@@ -1222,7 +1547,24 @@ function update(dt){
     c.x = nx; c.y = ny;
   });
 
-  bots.forEach(b=> updateBotAI(b, dt));
+  if(netMode){
+    updateRemotePuppet(dt);
+    netSendTimer -= dt;
+    if(netSendTimer <= 0){
+      netSendTimer = NET_SEND_INTERVAL;
+      sendNet({
+        t:'s', x:player.x, y:player.y, a:player.angle,
+        hp:player.hp, mhp:player.maxHp, al:player.alive,
+        lv:player.lives, w:player.weapon
+      });
+    }
+    if(!gameOver && remote && !remote.alive){
+      gameOver = true;
+      showEnd(true, true);
+    }
+  } else {
+    bots.forEach(b=> updateBotAI(b, dt));
+  }
 
   /* --- bullets --- */
   for(let i=bullets.length-1; i>=0; i--){
@@ -1643,13 +1985,106 @@ bindTap(document.getElementById('btnRestart'), ()=>{
   goFullscreen();
   if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   resize();
-  resetGame();
+  if(netMode){
+    sendNet({t:'rematch'});
+    resetGameOnline();
+  } else {
+    resetGame();
+  }
   running = true;
   checkOrientation();
 });
 
+/* ---------- lobby online ---------- */
+bindTap(document.getElementById('btnShowOnline'), ()=>{
+  document.getElementById('modeSelect').classList.add('hidden');
+  document.getElementById('onlinePanel').classList.remove('hidden');
+});
+bindTap(document.getElementById('btnBackToModes'), ()=>{
+  if(peer){ try{ peer.destroy(); }catch(e){} peer=null; conn=null; }
+  document.getElementById('onlinePanel').classList.add('hidden');
+  document.getElementById('roomCodeDisplay').classList.add('hidden');
+  document.getElementById('joinInputWrap').classList.add('hidden');
+  document.getElementById('roomStatus').textContent = '';
+  document.getElementById('modeSelect').classList.remove('hidden');
+});
+bindTap(document.getElementById('btnCreateRoom'), ()=>{
+  initAudio();
+  document.getElementById('joinInputWrap').classList.add('hidden');
+  createRoom();
+});
+bindTap(document.getElementById('btnJoinRoom'), ()=>{
+  document.getElementById('roomCodeDisplay').classList.add('hidden');
+  document.getElementById('joinInputWrap').classList.remove('hidden');
+});
+document.getElementById('joinCodeInput').addEventListener('input', (e)=>{
+  e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'');
+});
+bindTap(document.getElementById('btnConfirmJoin'), ()=>{
+  initAudio();
+  const code = document.getElementById('joinCodeInput').value.trim();
+  if(code.length < 4){
+    document.getElementById('roomStatus').textContent = 'Digite o código de 4 caracteres.';
+    return;
+  }
+  joinRoomWithCode(code);
+});
+
+/* ---------- pausa / sair para o menu ---------- */
+function pauseGame(){
+  if(!running || gameOver) return;
+  running = false;
+  document.getElementById('pauseScreen').classList.remove('hidden');
+}
+function resumeGame(){
+  document.getElementById('pauseScreen').classList.add('hidden');
+  lastT = performance.now();
+  running = true;
+}
+function exitToMenu(){
+  running = false;
+  gameOver = true;
+  if(netMode){
+    sendNet({t:'leave'});
+    if(conn){ try{ conn.close(); }catch(e){} }
+    if(peer){ try{ peer.destroy(); }catch(e){} }
+  }
+  netMode = null; peer = null; conn = null; remote = null;
+  document.getElementById('pauseScreen').classList.add('hidden');
+  document.getElementById('endScreen').classList.add('hidden');
+  document.getElementById('onlinePanel').classList.add('hidden');
+  document.getElementById('roomCodeDisplay').classList.add('hidden');
+  document.getElementById('joinInputWrap').classList.add('hidden');
+  document.getElementById('roomStatus').textContent = '';
+  document.getElementById('modeSelect').classList.remove('hidden');
+  document.getElementById('startScreen').classList.remove('hidden');
+}
+bindTap(document.getElementById('pauseBtn'), pauseGame);
+bindTap(document.getElementById('btnResume'), resumeGame);
+bindTap(document.getElementById('btnPauseToMenu'), exitToMenu);
+bindTap(document.getElementById('btnEndToMenu'), exitToMenu);
+
+/* ---------- interceptar botão/gesto de voltar do celular ---------- */
+function pushBackGuard(){
+  try{ history.pushState({gameGuard:true}, '', location.href); }catch(e){}
+}
+pushBackGuard();
+window.addEventListener('popstate', ()=>{
+  pushBackGuard();
+  const pauseVisible = !document.getElementById('pauseScreen').classList.contains('hidden');
+  if(pauseVisible){
+    resumeGame();
+  } else if(running && !gameOver){
+    pauseGame();
+  }
+});
+
 resize();
 requestAnimationFrame((t)=>{ lastT = t; requestAnimationFrame(loop); });
+
+if(isIOS && !window.navigator.standalone){
+  document.getElementById('iosTip').classList.remove('hidden');
+}
 
 })();
 </script>
