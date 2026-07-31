@@ -242,13 +242,13 @@
     100%{ transform:scale(1); opacity:1; }
   }
   .subtitle{
-    margin-top:6px; margin-bottom:34px;
+    margin-top:4px; margin-bottom:20px;
     font-size:14px; letter-spacing:5px; color:var(--muted);
     text-transform:uppercase;
   }
 
   /* tela curta de verdade (celular já deitado, Android) — encolhe o menu pra caber sem cortar */
-  @media (max-height: 460px){
+  @media (max-height: 560px){
     .screen{ padding:10px; justify-content:flex-start; }
     .drip-title{ font-size:min(9vh, 42px); margin-top:6px; }
     .subtitle{ margin-bottom:12px; font-size:11px; letter-spacing:3px; }
@@ -310,7 +310,7 @@
   .result-stats b{ color:var(--ink); font-size:20px; }
 
   /* ---------- Online lobby ---------- */
-  #modeSelect{ display:flex; flex-direction:column; gap:12px; width:min(84vw,320px); }
+  #modeSelect{ display:flex; flex-direction:column; gap:10px; width:min(84vw,320px); }
   .btn-outline{
     background:transparent; color:var(--ink);
     border:2px solid var(--team-b); box-shadow:none;
@@ -319,7 +319,7 @@
   }
   .btn-outline:active{ background:rgba(157,255,46,0.12); }
   #onlinePanel{
-    display:flex; flex-direction:column; align-items:center; gap:16px;
+    display:flex; flex-direction:column; align-items:center; gap:10px;
     width:min(84vw,320px);
   }
   .online-tabs{ display:flex; gap:10px; width:100%; }
@@ -381,6 +381,7 @@
       <div class="panel" style="text-align:right;">
         <div class="label">PONTOS</div>
         <div id="scoreVal">0</div>
+        <div id="bestVal" style="font-size:11px; color:var(--muted); letter-spacing:1px;">RECORDE: 0</div>
         <div id="timerVal">01:30</div>
       </div>
     </div>
@@ -441,12 +442,6 @@
         <button class="btn small" id="btnConfirmJoin">ENTRAR</button>
       </div>
       <button class="link-btn" id="btnBackToModes">← voltar</button>
-    </div>
-
-    <div class="instructions">
-      <div><div class="ic">L</div>MOVER</div>
-      <div><div class="ic">R</div>MIRAR<br>E ATIRAR</div>
-      <div><div class="ic">🔫</div>ARMAS<br>NO CHÃO</div>
     </div>
   </div>
 
@@ -529,6 +524,7 @@ function applyForceRotation(){
 }
 
 let splashDismissed = false;
+let countdownActive = false;
 function checkOrientation(){
   applyForceRotation();
   if(isIOS){
@@ -538,7 +534,7 @@ function checkOrientation(){
   }
   const isPortrait = window.innerHeight > window.innerWidth;
   const isSmall = Math.min(window.innerWidth, window.innerHeight) < 620;
-  const shouldWarn = isPortrait && isSmall && splashDismissed;
+  const shouldWarn = isPortrait && isSmall && splashDismissed && !countdownActive;
   rotateHint.classList.toggle('show', shouldWarn);
 }
 window.addEventListener('orientationchange', ()=> setTimeout(()=>{ resize(); checkOrientation(); }, 250));
@@ -1022,7 +1018,7 @@ function resetGame(){
   starTimer = 24;
   weaponTimer = 14;
   shieldTimer = 36;
-  score = 0;
+  score = 0; matchElapsed = 0;
   timeLeft = 90;
   gameOver = false;
   nextBotWave = 28;
@@ -1064,7 +1060,7 @@ function resetGameOnline(){
   bots = [remote];
 
   bullets = []; particles = []; pickups = [];
-  score = 0; timeLeft = 90; gameOver = false;
+  score = 0; matchElapsed = 0; timeLeft = 90; gameOver = false;
   paintGroundBase();
   updateLivesUI(); updateScoreUI(); updateAmmoLabel();
   player.invuln = 2;
@@ -1270,8 +1266,7 @@ document.getElementById('stage').addEventListener('touchcancel', endTouch);
 ============================================================ */
 function lerp(a,b,t){ return a + (b-a)*t; }
 function difficultyT(){
-  const elapsed = 90 - timeLeft;
-  return Math.max(0, Math.min(1, elapsed/110));
+  return Math.max(0, Math.min(1, matchElapsed/110));
 }
 
 const FIRE_INTERVAL = 0.22;
@@ -1494,6 +1489,8 @@ function obstacleBlocksLine(x0,y0,x1,y1){
    UI helpers
 ============================================================ */
 let score = 0, timeLeft = 90, gameOver = false, screenShake = 0, nextBotWave = 18;
+let matchElapsed = 0;
+let bestScore = parseInt(localStorage.getItem('paintball_best') || '0', 10) || 0;
 
 function updateLivesUI(){
   const wrap = document.getElementById('livesWrap');
@@ -1501,9 +1498,10 @@ function updateLivesUI(){
 }
 function updateScoreUI(){
   document.getElementById('scoreVal').textContent = score;
+  document.getElementById('bestVal').textContent = netMode ? '' : `RECORDE: ${bestScore}`;
 }
 function updateTimerUI(){
-  const m = Math.floor(timeLeft/60), s = Math.floor(timeLeft%60);
+  const m = Math.floor(matchElapsed/60), s = Math.floor(matchElapsed%60);
   document.getElementById('timerVal').textContent = `${m}:${s.toString().padStart(2,'0')}`;
 }
 function updateAmmoUI(cooldown){
@@ -1544,7 +1542,12 @@ function onPlayerDown(){
     sendNet({t:'dead'});
     showEnd(false, true);
   } else {
-    showEnd(false);
+    const isNewRecord = score > bestScore;
+    if(isNewRecord){
+      bestScore = score;
+      try{ localStorage.setItem('paintball_best', String(bestScore)); }catch(e){}
+    }
+    showEnd(false, false, false, isNewRecord);
   }
 }
 function onTimeUp(){
@@ -1559,7 +1562,7 @@ function onTimeUp(){
   }
 }
 
-function showEnd(survived, isOnline, disconnected){
+function showEnd(survived, isOnline, disconnected, isNewRecord){
   const endScreen = document.getElementById('endScreen');
   const title = document.getElementById('endTitle');
   const stats = document.getElementById('endStats');
@@ -1572,10 +1575,10 @@ function showEnd(survived, isOnline, disconnected){
       : '<span class="a">VOCÊ PERDEU</span>';
     stats.innerHTML = `DUELO 1x1<br><b>${survived ? 'GG!' : 'BOA SORTE NA PRÓXIMA'}</b>`;
   } else {
-    title.innerHTML = survived
-      ? '<span class="b">VITÓRIA</span>'
+    title.innerHTML = isNewRecord
+      ? '<span class="b">NOVO RECORDE!</span>'
       : '<span class="a">ELIMINADO</span>';
-    stats.innerHTML = `PONTUAÇÃO FINAL<br><b>${score}</b>`;
+    stats.innerHTML = `PONTUAÇÃO FINAL<br><b>${score}</b><br><span style="font-size:12px;">RECORDE: ${bestScore}</span>`;
   }
   endScreen.classList.remove('hidden');
 }
@@ -1589,8 +1592,7 @@ let running = false;
 function update(dt){
   if(gameOver) return;
 
-  timeLeft -= dt;
-  if(timeLeft <= 0){ timeLeft = 0; onTimeUp(); }
+  matchElapsed += dt;
   updateTimerUI();
 
   nextBotWave -= dt;
@@ -1602,8 +1604,7 @@ function update(dt){
     bots.push(nb);
   }
 
-  /* --- pickups: spawn (só no modo solo) --- */
-  if(!netMode){
+  /* --- pickups: spawn (mesmo padrão do solo, também vale no online) --- */
   heartTimer -= dt;
   if(heartTimer <= 0 && pickups.filter(p=>p.type==='heart').length < 2){
     heartTimer = 11 + Math.random()*4;
@@ -1623,7 +1624,6 @@ function update(dt){
   if(shieldTimer <= 0 && pickups.filter(p=>p.type==='shield').length < 1){
     shieldTimer = 14 + Math.random()*4;
     spawnPickup('shield');
-  }
   }
   /* --- pickups: collect --- */
   if(player.alive){
@@ -2203,14 +2203,28 @@ function bindTap(el, handler){
   });
 }
 
+const urlRoomCode = new URLSearchParams(location.search).get('room');
+if(urlRoomCode){
+  document.getElementById('pressStart').textContent = `TOQUE PARA ENTRAR NA SALA ${urlRoomCode.toUpperCase()}`;
+}
+
 bindTap(document.getElementById('splashScreen'), ()=>{
   goFullscreen();
   initAudio();
   if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   document.getElementById('splashScreen').classList.add('hidden');
-  document.getElementById('startScreen').classList.remove('hidden');
   splashDismissed = true;
   setTimeout(checkOrientation, 150); // pequeno delay pra pegar a orientação já atualizada após o fullscreen
+
+  if(urlRoomCode){
+    document.getElementById('startScreen').classList.remove('hidden');
+    document.getElementById('modeSelect').classList.add('hidden');
+    document.getElementById('onlinePanel').classList.remove('hidden');
+    document.getElementById('roomStatus').textContent = 'Entrando na sala...';
+    joinRoomWithCode(urlRoomCode.toUpperCase());
+  } else {
+    document.getElementById('startScreen').classList.remove('hidden');
+  }
 });
 
 bindTap(document.getElementById('btnStart'), ()=>{
@@ -2257,7 +2271,9 @@ bindTap(document.getElementById('btnCreateRoom'), ()=>{
 });
 bindTap(document.getElementById('btnShareRoom'), ()=>{
   if(!roomCode) return;
-  const msg = `🎯 Bora jogar Paintball comigo? Entra na minha sala!\n\nCódigo: ${roomCode}\n\nAbre o jogo aqui e toca em "1x1 Online com amigo" → "Entrar em Sala":\n${location.href}`;
+  const GAME_URL = 'https://hud50nx.github.io/Paintball';
+  const joinUrl = GAME_URL + '?room=' + roomCode;
+  const msg = `🎯 Bora jogar Paintball comigo?\n\nToca aqui pra entrar direto na minha sala:\n${joinUrl}\n\n(ou abre o jogo e usa o código: ${roomCode})`;
   if(navigator.share){
     navigator.share({ title:'Paintball Arena', text: msg }).catch(()=>{});
   } else {
@@ -2289,6 +2305,8 @@ function startCountdownThenPlay(setupFn){
   setupFn();
   running = false;
   gameOver = false;
+  countdownActive = true;
+  rotateHint.classList.remove('show');
   lastT = performance.now();
   draw(); // mostra a arena parada de fundo enquanto conta
   const el = document.getElementById('countdownNum');
@@ -2313,6 +2331,7 @@ function startCountdownThenPlay(setupFn){
       screenEl.classList.add('hidden');
       lastT = performance.now();
       running = true;
+      countdownActive = false;
       flashRotateHintBriefly();
       showControlsTutorial();
     }
