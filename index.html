@@ -13,6 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="maps.js"></script>
 <style>
   :root{
     --asphalt-0:#14171a;
@@ -357,6 +358,19 @@
     border-radius:8px; padding:10px 12px;
   }
   #iosTip b{ color:var(--line-y); }
+
+  #mapGrid{
+    display:grid; grid-template-columns:repeat(2,1fr); gap:10px;
+    width:min(88vw,380px); margin-top:16px;
+  }
+  .map-card{
+    background:rgba(20,23,26,0.85); border:2px solid rgba(255,255,255,.12);
+    border-radius:10px; padding:14px 8px; pointer-events:auto;
+    font-family:'Bebas Neue',sans-serif; font-size:14px; letter-spacing:1.5px;
+    color:var(--ink); text-align:center; cursor:pointer;
+  }
+  .map-card:active{ border-color:var(--line-y); background:rgba(255,176,32,0.1); }
+  .map-card .swatch{ width:100%; height:34px; border-radius:6px; margin-bottom:8px; }
 </style>
 </head>
 <body>
@@ -451,6 +465,13 @@
     <div class="result-stats" id="endStats"></div>
     <button class="btn" id="btnRestart">JOGAR DE NOVO</button>
     <button class="btn-outline" id="btnEndToMenu" style="margin-top:12px;">MENU PRINCIPAL</button>
+  </div>
+
+  <!-- MAP SELECT SCREEN -->
+  <div class="screen hidden" id="mapSelectScreen">
+    <div class="drip-title" style="font-size:min(10vw,40px);">ESCOLHA O MAPA</div>
+    <div id="mapGrid"></div>
+    <button class="link-btn" id="btnMapBack">← voltar</button>
   </div>
 
   <!-- PAUSE SCREEN -->
@@ -571,56 +592,11 @@ decalCanvas.height = WORLD_H * DECAL_RES;
 decalCanvas.style.display = 'none'; // é só um buffer, composto no canvas visível a cada frame
 dctx.setTransform(DECAL_RES,0,0,DECAL_RES,0,0);
 
-let groundPattern = null;
-function buildGroundPattern(){
-  const s = 96;
-  const pc = document.createElement('canvas');
-  pc.width = s; pc.height = s;
-  const pctx = pc.getContext('2d');
-  pctx.fillStyle = '#22262b';
-  pctx.fillRect(0,0,s,s);
-  // noise speckles
-  for(let i=0;i<220;i++){
-    const x = Math.random()*s, y = Math.random()*s;
-    const b = Math.random();
-    pctx.fillStyle = `rgba(${b>0.5?255:0},${b>0.5?255:0},${b>0.5?255:0},${(Math.random()*0.05).toFixed(3)})`;
-    pctx.fillRect(x,y,1.5,1.5);
-  }
-  // subtle cracks
-  pctx.strokeStyle = 'rgba(0,0,0,0.15)';
-  pctx.lineWidth = 1;
-  pctx.beginPath();
-  pctx.moveTo(0, s*0.3); pctx.lineTo(s*0.4, s*0.5); pctx.lineTo(s, s*0.35);
-  pctx.stroke();
-  groundPattern = dctx.createPattern(pc, 'repeat');
-}
+let currentMap = window.GAME_MAPS.urban;
 
 function paintGroundBase(){
-  const w = WORLD_W, h = WORLD_H;
-  // base gradient
-  const g = dctx.createRadialGradient(w/2, h*0.4, 50, w/2, h*0.5, Math.max(w,h)*0.8);
-  g.addColorStop(0, '#2b3036');
-  g.addColorStop(1, '#15181b');
-  dctx.fillStyle = g;
-  dctx.fillRect(0,0,w,h);
-  dctx.fillStyle = groundPattern;
-  dctx.fillRect(0,0,w,h);
-  // hazard border stripes
-  const stripeW = 22;
-  dctx.save();
-  dctx.beginPath();
-  dctx.rect(0,0,w,h);
-  dctx.rect(stripeW,stripeW,w-stripeW*2,h-stripeW*2);
-  dctx.clip('evenodd');
-  for(let i=-h; i<w+h; i+=26){
-    dctx.fillStyle = (Math.floor(i/26)%2===0) ? '#ffb020' : '#1a1a1a';
-    dctx.save();
-    dctx.translate(i,0);
-    dctx.rotate(Math.PI/4);
-    dctx.fillRect(0,-h*2,18,h*4);
-    dctx.restore();
-  }
-  dctx.restore();
+  currentMap.drawGround(dctx);
+  currentMap.drawBorder(dctx);
 }
 
 /* ============================================================
@@ -668,47 +644,22 @@ const PAINT_COLORS = [
    Igual pra todo mundo, independente do tamanho da tela
    (essencial pro modo online: os dois veem as mesmas paredes).
 ============================================================ */
-const obstacles = [
-  {rx:0.20, ry:0.22, rw:0.16, rh:0.10},
-  {rx:0.62, ry:0.20, rw:0.14, rh:0.10},
-  {rx:0.40, ry:0.46, rw:0.12, rh:0.12},
-  {rx:0.12, ry:0.68, rw:0.15, rh:0.10},
-  {rx:0.68, ry:0.65, rw:0.16, rh:0.10},
-  {rx:0.78, ry:0.40, rw:0.08, rh:0.13},
-  {rx:0.14, ry:0.44, rw:0.08, rh:0.12},
-].map(o=>({
-  x: o.rx*WORLD_W, y: o.ry*WORLD_H, w: o.rw*WORLD_W, h: o.rh*WORLD_H
-}));
+let obstacles = [];
+function buildObstaclesFromMap(){
+  obstacles = currentMap.obstacles.map(o=>({
+    x: o.rx*WORLD_W, y: o.ry*WORLD_H, w: o.rw*WORLD_W, h: o.rh*WORLD_H, moving: !!o.moving
+  }));
+}
+buildObstaclesFromMap();
 
-function drawCrate(o){
-  const {x,y,w,h} = o;
-  // shadow
-  gctx.save();
-  gctx.fillStyle = 'rgba(0,0,0,0.35)';
-  gctx.beginPath();
-  gctx.ellipse(x+w/2+4, y+h+6, w/2*0.9, h*0.22, 0, 0, Math.PI*2);
-  gctx.fill();
-  gctx.restore();
+function updateMovingObstacles(){
+  if(currentMap.movingIndex == null) return;
+  const o = obstacles[currentMap.movingIndex];
+  if(o) o.x = currentMap.movingX(matchElapsed) - o.w/2;
+}
 
-  const grad = gctx.createLinearGradient(x,y,x,y+h);
-  grad.addColorStop(0, '#8a5a2e');
-  grad.addColorStop(1, '#4d3016');
-  gctx.fillStyle = grad;
-  gctx.fillRect(x,y,w,h);
-
-  gctx.strokeStyle = 'rgba(0,0,0,0.4)';
-  gctx.lineWidth = 3;
-  gctx.strokeRect(x+1.5,y+1.5,w-3,h-3);
-
-  gctx.strokeStyle = 'rgba(255,255,255,0.08)';
-  gctx.lineWidth = 1;
-  gctx.beginPath();
-  gctx.moveTo(x,y); gctx.lineTo(x+w,y+h);
-  gctx.moveTo(x+w,y); gctx.lineTo(x,y+h);
-  gctx.stroke();
-
-  gctx.fillStyle = 'rgba(255,176,32,0.85)';
-  gctx.fillRect(x, y+h*0.42, w, h*0.10);
+function drawCrate(o, idx){
+  currentMap.drawObstacle(gctx, o, idx);
 }
 
 function circleRectCollide(cx, cy, cr, r){
@@ -1001,6 +952,7 @@ const BOT_SPAWN_SAFE_DIST = 260; // inimigos nunca nascem perto de você
 
 function resetGame(){
   lockedTarget = null;
+  buildObstaclesFromMap();
   const p0 = {x: WORLD_W*0.5, y: WORLD_H*0.82};
   player = makeCharacter('player', p0.x, p0.y);
   player.lives = 3;
@@ -1046,6 +998,7 @@ function genRoomCode(){
 
 function resetGameOnline(){
   lockedTarget = null;
+  buildObstaclesFromMap();
   const p0 = netMode==='host' ? {x:WORLD_W*0.5, y:WORLD_H*0.82} : {x:WORLD_W*0.5, y:WORLD_H*0.18};
   const r0 = netMode==='host' ? {x:WORLD_W*0.5, y:WORLD_H*0.18} : {x:WORLD_W*0.5, y:WORLD_H*0.82};
   player = makeCharacter('player', p0.x, p0.y);
@@ -1081,8 +1034,26 @@ function updateRemotePuppet(dt){
   }
 }
 
+let guestPendingStart = false;
+function startGuestMatch(){
+  document.getElementById('startScreen').classList.add('hidden');
+  goFullscreen();
+  initAudio();
+  if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  resize();
+  checkOrientation();
+  startCountdownThenPlay(resetGameOnline);
+}
+
 function handleNetData(msg){
-  if(!msg || !remote) return;
+  if(!msg) return;
+  if(msg.t === 'map'){
+    const m = window.GAME_MAPS[msg.id];
+    if(m) currentMap = m;
+    if(guestPendingStart){ guestPendingStart = false; startGuestMatch(); }
+    return;
+  }
+  if(!remote) return;
   if(msg.t === 's'){
     remote.netX = msg.x; remote.netY = msg.y; remote.angle = msg.a;
     remote.hp = msg.hp; remote.maxHp = msg.mhp;
@@ -1110,7 +1081,7 @@ function handleNetData(msg){
 function setupConnection(role){
   netMode = role;
   const statusEl = document.getElementById('roomStatus');
-  if(statusEl) statusEl.textContent = 'Conectado! Entrando na arena...';
+  if(statusEl) statusEl.textContent = 'Conectado! Escolhendo mapa...';
   conn.on('data', handleNetData);
   conn.on('close', ()=>{
     if(netMode && !gameOver){
@@ -1119,15 +1090,17 @@ function setupConnection(role){
       showEnd(false, true, true);
     }
   });
-  setTimeout(()=>{
-    document.getElementById('startScreen').classList.add('hidden');
-    goFullscreen();
-    initAudio();
-    if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
-    resize();
-    checkOrientation();
-    startCountdownThenPlay(resetGameOnline);
-  }, 500);
+  if(role === 'host'){
+    document.getElementById('onlinePanel').classList.add('hidden');
+    document.getElementById('mapSelectScreen').classList.remove('hidden');
+    pendingMapAction = 'onlineHost';
+  } else {
+    if(statusEl) statusEl.textContent = 'Aguardando o anfitrião escolher o mapa...';
+    guestPendingStart = true;
+    setTimeout(()=>{
+      if(guestPendingStart){ guestPendingStart = false; startGuestMatch(); }
+    }, 15000); // segurança: se a mensagem se perder, começa mesmo assim
+  }
 }
 
 function createRoom(tries){
@@ -1594,6 +1567,7 @@ function update(dt){
 
   matchElapsed += dt;
   updateTimerUI();
+  updateMovingObstacles();
 
   nextBotWave -= dt;
   if(!netMode && nextBotWave <= 0 && bots.length < 3){
@@ -2227,14 +2201,66 @@ bindTap(document.getElementById('splashScreen'), ()=>{
   }
 });
 
+let pendingMapAction = null;
+
+function buildMapGrid(){
+  const grid = document.getElementById('mapGrid');
+  grid.innerHTML = '';
+  window.GAME_MAPS_ORDER.forEach(id=>{
+    const map = window.GAME_MAPS[id];
+    const card = document.createElement('div');
+    card.className = 'map-card';
+    const swatchColors = {
+      urban:'linear-gradient(135deg,#4d3016,#2b3036)',
+      neon:'linear-gradient(135deg,#ff2fd6,#00e0ff)',
+      trench:'linear-gradient(135deg,#6e5c34,#3c3a26)',
+      beach:'linear-gradient(135deg,#f0d8a0,#0e7ba8)',
+      factory:'linear-gradient(135deg,#ffb020,#33383d)'
+    };
+    card.innerHTML = `<div class="swatch" style="background:${swatchColors[id]||'#444'}"></div>${map.name}`;
+    grid.appendChild(card);
+    bindTap(card, ()=>{
+      currentMap = map;
+      document.getElementById('mapSelectScreen').classList.add('hidden');
+      if(pendingMapAction === 'solo'){
+        goFullscreen();
+        initAudio();
+        if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        resize();
+        checkOrientation();
+        startCountdownThenPlay(resetGame);
+      } else if(pendingMapAction === 'onlineHost'){
+        sendNet({t:'map', id: currentMap.id});
+        document.getElementById('startScreen').classList.add('hidden');
+        goFullscreen();
+        initAudio();
+        if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        resize();
+        checkOrientation();
+        startCountdownThenPlay(resetGameOnline);
+      }
+      pendingMapAction = null;
+    });
+  });
+}
+buildMapGrid();
+
 bindTap(document.getElementById('btnStart'), ()=>{
   document.getElementById('startScreen').classList.add('hidden');
-  goFullscreen();
-  initAudio();
-  if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-  resize();
-  checkOrientation();
-  startCountdownThenPlay(resetGame);
+  document.getElementById('mapSelectScreen').classList.remove('hidden');
+  pendingMapAction = 'solo';
+});
+bindTap(document.getElementById('btnMapBack'), ()=>{
+  document.getElementById('mapSelectScreen').classList.add('hidden');
+  if(pendingMapAction === 'onlineHost'){
+    // amigo já está conectado esperando; só volta a tela, não desfaz a sala
+    document.getElementById('startScreen').classList.remove('hidden');
+    document.getElementById('onlinePanel').classList.remove('hidden');
+    document.getElementById('roomCodeDisplay').classList.remove('hidden');
+  } else {
+    document.getElementById('startScreen').classList.remove('hidden');
+  }
+  pendingMapAction = null;
 });
 bindTap(document.getElementById('btnRestart'), ()=>{
   document.getElementById('endScreen').classList.add('hidden');
@@ -2412,7 +2438,6 @@ window.addEventListener('popstate', ()=>{
   }
 });
 
-buildGroundPattern();
 paintGroundBase();
 resize();
 requestAnimationFrame((t)=>{ lastT = t; requestAnimationFrame(loop); });
