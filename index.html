@@ -1041,8 +1041,7 @@ function startGuestMatch(){
   initAudio();
   if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   resize();
-  checkOrientation();
-  startCountdownThenPlay(resetGameOnline);
+    startCountdownThenPlay(resetGameOnline);
 }
 
 function handleNetData(msg){
@@ -2227,8 +2226,7 @@ function buildMapGrid(){
         initAudio();
         if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
         resize();
-        checkOrientation();
-        startCountdownThenPlay(resetGame);
+                startCountdownThenPlay(resetGame);
       } else if(pendingMapAction === 'onlineHost'){
         sendNet({t:'map', id: currentMap.id});
         document.getElementById('startScreen').classList.add('hidden');
@@ -2236,8 +2234,7 @@ function buildMapGrid(){
         initAudio();
         if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
         resize();
-        checkOrientation();
-        startCountdownThenPlay(resetGameOnline);
+                startCountdownThenPlay(resetGameOnline);
       }
       pendingMapAction = null;
     });
@@ -2267,8 +2264,7 @@ bindTap(document.getElementById('btnRestart'), ()=>{
   goFullscreen();
   if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   resize();
-  checkOrientation();
-  if(netMode){
+    if(netMode){
     sendNet({t:'rematch'});
     startCountdownThenPlay(resetGameOnline);
   } else {
