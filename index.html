@@ -54,7 +54,7 @@
     flex-direction:column; gap:14px; text-align:center; padding:24px;
     background:var(--asphalt-0);
   }
-  #rotateHint.show{ display:flex; }
+  #rotateHint.show{ display:none !important; } /* desativado permanentemente */
   #rotateHint .icon{
     font-size:44px; animation:rotatePulse 1.6s ease-in-out infinite;
   }
@@ -548,15 +548,7 @@ let splashDismissed = false;
 let countdownActive = false;
 function checkOrientation(){
   applyForceRotation();
-  if(isIOS){
-    // no iPhone a rotação é forçada por CSS, nunca pedimos pra girar
-    rotateHint.classList.remove('show');
-    return;
-  }
-  const isPortrait = window.innerHeight > window.innerWidth;
-  const isSmall = Math.min(window.innerWidth, window.innerHeight) < 620;
-  const shouldWarn = isPortrait && isSmall && splashDismissed && !countdownActive && !running;
-  rotateHint.classList.toggle('show', shouldWarn);
+  rotateHint.classList.remove('show'); // aviso de girar desativado permanentemente
 }
 window.addEventListener('orientationchange', ()=> setTimeout(()=>{ resize(); checkOrientation(); }, 250));
 if(window.visualViewport){
@@ -2376,13 +2368,7 @@ function showControlsTutorial(){
 }
 
 function flashRotateHintBriefly(){
-  const isPortraitNow = window.innerHeight > window.innerWidth;
-  if(isPortraitNow) return; // já mostrando o aviso persistente de verdade, não precisa duplicar
-  rotateHint.classList.add('show');
-  setTimeout(()=>{
-    const stillPortrait = window.innerHeight > window.innerWidth;
-    if(!stillPortrait) rotateHint.classList.remove('show');
-  }, 2000);
+  // desativado permanentemente
 }
 
 /* ---------- pausa / sair para o menu ---------- */
