@@ -555,7 +555,7 @@ function checkOrientation(){
   }
   const isPortrait = window.innerHeight > window.innerWidth;
   const isSmall = Math.min(window.innerWidth, window.innerHeight) < 620;
-  const shouldWarn = isPortrait && isSmall && splashDismissed && !countdownActive;
+  const shouldWarn = isPortrait && isSmall && splashDismissed && !countdownActive && !running;
   rotateHint.classList.toggle('show', shouldWarn);
 }
 window.addEventListener('orientationchange', ()=> setTimeout(()=>{ resize(); checkOrientation(); }, 250));
