@@ -344,3 +344,4 @@ const factory = {
 window.GAME_MAPS = { urban, neon, trench, beach, factory };
 window.GAME_MAPS_ORDER = ['urban','neon','trench','beach','factory'];
 })();
+
